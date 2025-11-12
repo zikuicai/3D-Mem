@@ -86,22 +86,20 @@ def make_semantic_cfg(settings):
 
     return habitat_sim.Configuration(sim_cfg, [agent_cfg])
 
-
 def make_simple_cfg(settings):
     # simulator backend
     sim_cfg = habitat_sim.SimulatorConfiguration()
     sim_cfg.scene_id = settings["scene"]
-    sim_cfg.scene_dataset_config_file = settings["scene_dataset_config_file"]
 
     # agent
     agent_cfg = habitat_sim.agent.AgentConfiguration()
 
+    # In the 1st example, we attach only one sensor, a RGB visual sensor, to the agent
     rgb_sensor_spec = habitat_sim.CameraSensorSpec()
     rgb_sensor_spec.uuid = "color_sensor"
     rgb_sensor_spec.sensor_type = habitat_sim.SensorType.COLOR
     rgb_sensor_spec.resolution = [settings["height"], settings["width"]]
     rgb_sensor_spec.position = habitat_sim.geo.UP * settings["sensor_height"]
-    rgb_sensor_spec.orientation = [settings["camera_tilt"], 0.0, 0.0]
     rgb_sensor_spec.hfov = settings["hfov"]
 
     depth_sensor_spec = habitat_sim.CameraSensorSpec()
@@ -109,12 +107,52 @@ def make_simple_cfg(settings):
     depth_sensor_spec.sensor_type = habitat_sim.SensorType.DEPTH
     depth_sensor_spec.resolution = [settings["height"], settings["width"]]
     depth_sensor_spec.position = habitat_sim.geo.UP * settings["sensor_height"]
-    depth_sensor_spec.orientation = [settings["camera_tilt"], 0.0, 0.0]
     depth_sensor_spec.hfov = settings["hfov"]
 
     agent_cfg.sensor_specifications = [rgb_sensor_spec, depth_sensor_spec]
 
+    # agent_cfg.action_space = {
+    #     "move_forward": habitat_sim.agent.ActionSpec(
+    #         "move_forward", habitat_sim.agent.ActuationSpec(amount=0.25) # 向前进0.25m
+    #     ),
+    #     "turn_left": habitat_sim.agent.ActionSpec(
+    #         "turn_left", habitat_sim.agent.ActuationSpec(amount=30.0) # 向左转30度
+    #     ),
+    #     "turn_right": habitat_sim.agent.ActionSpec(
+    #         "turn_right", habitat_sim.agent.ActuationSpec(amount=30.0) # 向右转30度
+    #     ),
+    # }
+
     return habitat_sim.Configuration(sim_cfg, [agent_cfg])
+
+# def make_simple_cfg(settings):
+#     # simulator backend
+#     sim_cfg = habitat_sim.SimulatorConfiguration()
+#     sim_cfg.scene_id = settings["scene"]
+#     sim_cfg.scene_dataset_config_file = settings["scene_dataset_config_file"]
+
+#     # agent
+#     agent_cfg = habitat_sim.agent.AgentConfiguration()
+
+#     rgb_sensor_spec = habitat_sim.CameraSensorSpec()
+#     rgb_sensor_spec.uuid = "color_sensor"
+#     rgb_sensor_spec.sensor_type = habitat_sim.SensorType.COLOR
+#     rgb_sensor_spec.resolution = [settings["height"], settings["width"]]
+#     rgb_sensor_spec.position = habitat_sim.geo.UP * settings["sensor_height"]
+#     rgb_sensor_spec.orientation = [settings["camera_tilt"], 0.0, 0.0]
+#     rgb_sensor_spec.hfov = settings["hfov"]
+
+#     depth_sensor_spec = habitat_sim.CameraSensorSpec()
+#     depth_sensor_spec.uuid = "depth_sensor"
+#     depth_sensor_spec.sensor_type = habitat_sim.SensorType.DEPTH
+#     depth_sensor_spec.resolution = [settings["height"], settings["width"]]
+#     depth_sensor_spec.position = habitat_sim.geo.UP * settings["sensor_height"]
+#     depth_sensor_spec.orientation = [settings["camera_tilt"], 0.0, 0.0]
+#     depth_sensor_spec.hfov = settings["hfov"]
+
+#     agent_cfg.sensor_specifications = [rgb_sensor_spec, depth_sensor_spec]
+
+#     return habitat_sim.Configuration(sim_cfg, [agent_cfg])
 
 
 def get_quaternion(angle, camera_tilt):

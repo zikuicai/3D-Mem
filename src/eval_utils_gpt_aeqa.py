@@ -11,8 +11,8 @@ from src.const import *
 
 
 client = OpenAI(
-    base_url=END_POINT,
-    api_key=OPENAI_KEY,
+    base_url="http://localhost:8000/v1",
+    api_key="EMPTY",
 )
 
 
@@ -43,9 +43,19 @@ def call_openai_api(sys_prompt, contents) -> Optional[str]:
         {"role": "user", "content": formated_content},
     ]
     while retry_count < max_tries:
+        # completion = client.chat.completions.create(
+        #         model="Qwen2.5-VL-7B-Instruct-AWQ",  # model = "deployment_name"
+        #         messages=message_text,
+        #         temperature=0.7,
+        #         max_tokens=4096,
+        #         top_p=0.95,
+        #         frequency_penalty=0,
+        #         presence_penalty=0,
+        #     )
+        # return completion.choices[0].message.content
         try:
             completion = client.chat.completions.create(
-                model="gpt-4o",  # model = "deployment_name"
+                model="Qwen2.5-VL-7B-Instruct-AWQ",  # model = "deployment_name"
                 messages=message_text,
                 temperature=0.7,
                 max_tokens=4096,
@@ -271,6 +281,12 @@ def get_prefiltering_classes(question, seen_classes, top_k=10, image_goal=None):
     if response is None:
         return []
 
+    
+    print('#### Prefiltering ####')
+    print(seen_classes)
+    print(response)
+    print('#####################')
+
     # parse the response and return the top_k objects
     selected_classes = response.strip().split("\n")
     selected_classes = [cls.strip() for cls in selected_classes]
@@ -338,6 +354,7 @@ def explore_step(step, cfg, verbose=False):
     final_reason = None
     for _ in range(retry_bound):
         full_response = call_openai_api(sys_prompt, content)
+        logging.info(f"Full response:\n{full_response}")
 
         if full_response is None:
             print("call_openai_api returns None, retrying")

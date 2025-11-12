@@ -30,6 +30,8 @@ from src.logger_aeqa import Logger
 from src.const import *
 from src.habitat import pos_normal_to_habitat, pos_habitat_to_normal
 
+OFFLINE_MODE = True
+
 import cv2
 def visualize_map(tsdf_planner: TSDFPlanner, pts, height=1.8, cam_pose=None):
     ft_map = np.zeros(
@@ -57,7 +59,7 @@ def visualize_map(tsdf_planner: TSDFPlanner, pts, height=1.8, cam_pose=None):
     ft_map = cv2.resize(ft_map, dsize=(512, 512))
     # cv2.imshow(f"Obstacle Map", ft_map)        
     # cv2.waitKey(1)
-    cv2.imwrite('obstacle_map.png', ft_map)
+    cv2.imwrite('obstacle_map_mem.png', ft_map)
 
     return ft_map
 
@@ -101,7 +103,28 @@ def load_questions(scene_id=None):
                 count += 1
     return question_list
 
+def answer_offline(question, scene, tsdf_planner, cfg):
+    _original = cfg.egocentric_views
+    cfg.egocentric_views = False
+    vlm_response = query_vlm_for_response(
+            question=question,
+            scene=scene,
+            tsdf_planner=tsdf_planner,
+            rgb_egocentric_views=[],
+            cfg=cfg,
+            verbose=True,
+        )
+    cfg.egocentric_views = _original
+
+    if vlm_response is None:
+        logging.info(f"Offline VLM query failed!")
+        return None
+
+    return vlm_response
+
+
 def main(cfg, start_ratio=0.0, end_ratio=1.0, scene_id=None):
+
     # load the default concept graph config
     cfg_cg = OmegaConf.load(cfg.concept_graph_config_path)
     OmegaConf.resolve(cfg_cg)
@@ -142,9 +165,7 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, scene_id=None):
     clip_tokenizer = open_clip.get_tokenizer("ViT-B-32")
     logging.info(f"Load CLIP model successful!")
 
-    for q in questions_list:
-        print(q['question_id'])
-
+    # Initialize the logger
     logger = Logger(
         cfg.output_dir,
         start_ratio,
@@ -154,6 +175,7 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, scene_id=None):
     )
 
     # Run all questions
+    questions_answered = []
     for question_idx, question_data in enumerate(questions_list):
         question_id = question_data["question_id"]
         scene_id = question_data["episode_history"]
@@ -169,48 +191,37 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, scene_id=None):
         answer = question_data["answer"]
 
         # load scene
-        try:
-            del scene
-        except:
-            pass
-        scene = Scene(
-            scene_id,
-            cfg,
-            cfg_cg,
-            detection_model,
-            sam_predictor,
-            clip_model,
-            clip_preprocess,
-            clip_tokenizer,
-        )
+        if question_idx == 0:
+            try:
+                del scene
+            except:
+                pass
+            scene = Scene(
+                scene_id,
+                cfg,
+                cfg_cg,
+                detection_model,
+                sam_predictor,
+                clip_model,
+                clip_preprocess,
+                clip_tokenizer,
+            )
 
-        # agent_state = scene.simulator.get_agent(0).state
-        # print(agent_state)
-        # question_data["position"] = agent_state.position.tolist()
-    
-        # pts = scene.simulator.pathfinder.get_random_navigable_point()
-        # pts[1] = 0.06
-        # angle = [0, 0, 0, 1]
-        # question_data["position"] = pts
- 
-        # pts, angle = get_pts_angle_aeqa(
-        #     question_data["position"], question_data["rotation"]
-        # )
-        # print(pts, angle)
         pts = question_data["position"]
         angle = question_data["rotation"]
 
 
-        # initialize the TSDF
-        tsdf_planner = TSDFPlanner(
-            vol_bnds=get_scene_bnds(scene.pathfinder, floor_height=pts[1])[0],
-            voxel_size=cfg.tsdf_grid_size,
-            floor_height=pts[1],
-            floor_height_offset=0,
-            pts_init=pts,
-            init_clearance=cfg.init_clearance * 2,
-            save_visualization=cfg.save_visualization,
-        )
+        if question_idx == 0:
+            # initialize the TSDF
+            tsdf_planner = TSDFPlanner(
+                vol_bnds=get_scene_bnds(scene.pathfinder, floor_height=pts[1])[0],
+                voxel_size=cfg.tsdf_grid_size,
+                floor_height=pts[1],
+                floor_height_offset=0,
+                pts_init=pts,
+                init_clearance=cfg.init_clearance * 2,
+                save_visualization=cfg.save_visualization,
+            )
 
         episode_dir, eps_chosen_snapshot_dir, eps_frontier_dir, eps_snapshot_dir = (
             logger.init_episode(
@@ -219,6 +230,7 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, scene_id=None):
             )
         )
 
+        tsdf_planner.reset()
         logging.info(f"\n\nQuestion id {question_id} initialization successful!")
 
         # run steps
@@ -230,6 +242,35 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, scene_id=None):
         while cnt_step < cfg.num_step - 1:
             cnt_step += 1
             logging.info(f"\n== step: {cnt_step}")
+
+            if cnt_step == 0 and question_idx > 0 and OFFLINE_MODE:
+                vlm_response = answer_offline(
+                    question=question,
+                    scene=scene,
+                    tsdf_planner=tsdf_planner,
+                    cfg=cfg,
+                )
+
+                if vlm_response is None:
+                    continue
+                max_point_choice, gpt_answer, n_filtered_snapshots, is_answer = vlm_response
+                
+                if is_answer:
+                    logging.info(f"Question id {question_id} finished by offline VLM!")
+                    task_success = True
+                    snapshot_filename = max_point_choice.image.split(".")[0]
+                    
+                    for question_id_done in questions_answered:
+                        old_eps_snapshot_dir = os.path.join(cfg.output_parent_dir, cfg.exp_name, scene_id, question_id_done, "snapshot")
+                        if os.path.exists(os.path.join(old_eps_snapshot_dir, max_point_choice.image)):
+                            os.system(
+                                f"cp {os.path.join(old_eps_snapshot_dir, max_point_choice.image)} {os.path.join(eps_chosen_snapshot_dir, f'snapshot_{snapshot_filename}.png')}"
+                            )
+                            break
+                    break
+            
+            if cnt_step == 0 and task_success and OFFLINE_MODE:
+                break
 
             # (1) Observe the surroundings, update the scene graph and occupancy map
             print("Step 1: Observing surroundings...")
@@ -258,7 +299,7 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, scene_id=None):
                 rgb = obs["color_sensor"]
                 depth = obs["depth_sensor"]
 
-                obs_file_name = f"{cnt_step}-view_{view_idx}.png"
+                obs_file_name = f"{question_idx}_{cnt_step}-view_{view_idx}.png"
                 with torch.no_grad():
                     # Concept graph pipeline update
                     annotated_rgb, added_obj_ids, _ = scene.update_scene_graph(
@@ -269,7 +310,7 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, scene_id=None):
                         pts=pts,
                         pts_voxel=tsdf_planner.habitat2voxel(pts),
                         img_path=obs_file_name,
-                        frame_idx=cnt_step * total_views + view_idx,
+                        frame_idx=question_idx*total_views*cfg.num_step + cnt_step * total_views + view_idx,
                         target_obj_mask=None,
                     )
                     resized_rgb = resize_image(rgb, cfg.prompt_h, cfg.prompt_w)
@@ -285,7 +326,7 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, scene_id=None):
 
                 # Clean up or merge redundant objects periodically
                 scene.periodic_cleanup_objects(
-                    frame_idx=cnt_step * total_views + view_idx, pts=pts
+                    frame_idx=question_idx*total_views*cfg.num_step + cnt_step * total_views + view_idx, pts=pts
                 )
 
                 # Update depth map, occupancy map
@@ -327,7 +368,7 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, scene_id=None):
                 pts=pts,
                 cfg=cfg.planner,
                 scene=scene,
-                cnt_step=cnt_step,
+                cnt_step=question_idx*cfg.num_step + cnt_step,
                 save_frontier_image=cfg.save_visualization,
                 eps_frontier_dir=eps_frontier_dir,
                 prompt_img_size=(cfg.prompt_h, cfg.prompt_w),
@@ -440,6 +481,7 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, scene_id=None):
                 )
                 break
 
+        # save pts list and ptr voxel list
         np.savez(
             os.path.join(logger.episode_dir, "pts_list.npz"),
             pts_list=np.array(pts_list),
@@ -471,6 +513,8 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, scene_id=None):
         if not cfg.save_visualization:
             # clear up the stored images to save memory
             os.system(f"rm -r {episode_dir}")
+
+        questions_answered.append(question_id)
 
     logger.save_results()
     # aggregate the results from different splits into a single file
@@ -533,4 +577,4 @@ if __name__ == "__main__":
 
     # run
     logging.info(f"***** Running {cfg.exp_name} *****")
-    main(cfg, args.start_ratio, args.end_ratio, args.scene_id)
+    main(cfg, args.start_ratio, args.end_ratio, scene_id=args.scene_id)

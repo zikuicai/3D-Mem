@@ -93,7 +93,7 @@ def query_vlm_for_response(
         )
         logging.info(f"Next choice Snapshot of {pred_target_snapshot.image}")
 
-        return pred_target_snapshot, reason, n_filtered_snapshots
+        return pred_target_snapshot, reason, n_filtered_snapshots, True
     else:  # target_type == "frontier"
         target_index = int(target_index)
         if target_index < 0 or target_index >= len(tsdf_planner.frontiers):
@@ -105,4 +105,4 @@ def query_vlm_for_response(
         logging.info(f"Next choice: Frontier at {target_point}")
         pred_target_frontier = tsdf_planner.frontiers[target_index]
 
-        return pred_target_frontier, reason, n_filtered_snapshots
+        return pred_target_frontier, reason, n_filtered_snapshots, False

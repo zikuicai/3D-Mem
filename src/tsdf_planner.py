@@ -84,8 +84,8 @@ class TSDFPlanner(TSDFPlannerBase):
         floor_height_offset=0,
         pts_init=None,
         init_clearance=0,
-        occupancy_height=0.4,
-        vision_height=1.2,
+        occupancy_height=1.5,
+        vision_height=1.5,
         save_visualization=False,
     ):
         super().__init__(
@@ -126,6 +126,10 @@ class TSDFPlanner(TSDFPlannerBase):
         self.island = None
         self.unexplored_neighbors = None
         self.occupied_map_camera = None
+
+    def reset(self):
+        self.max_point = None
+        self.target_point = None
 
     def update_frontier_map(
         self,
@@ -173,6 +177,28 @@ class TSDFPlanner(TSDFPlannerBase):
             & (unexplored_neighbors >= cfg.frontier_edge_area_min)
             & (unexplored_neighbors <= cfg.frontier_edge_area_max)
         )
+
+        # ft_map = np.zeros(
+        #     (self._tsdf_vol_cpu.shape[0], self._tsdf_vol_cpu.shape[1], 3),
+        #     dtype=np.uint8,
+        # ) + np.asarray([[[255, 255, 255]]], dtype=np.uint8)
+
+        # ft_map[unoccupied > 0] = [200, 200, 200]
+        # ft_map[(unexplored == 0) & (unoccupied > 0)] = [194, 246, 198]
+        # # ft_map[occupied > 0] = [100, 100, 100]
+
+        # fa = island & (unexplored_neighbors >= cfg.frontier_area_min) & (unexplored_neighbors <= cfg.frontier_area_max)
+        # fe = island & (unexplored_neighbors >= cfg.frontier_edge_area_min) & (unexplored_neighbors <= cfg.frontier_edge_area_max)
+        # print(np.sum(fa), np.sum(fe))
+        
+        # # ft_map[island] = [150, 150, 150]
+        # # ft_map[fa] = [255, 0, 0]
+        # # ft_map[fe] = [0, 0, 255]
+        
+
+        # import cv2
+        # cv2.imwrite(f"frontier_map_{cnt_step}.png", ft_map)
+
 
         if len(frontier_areas) == 0:
             # this happens when there are stairs on the floor, and the planner cannot handle this situation

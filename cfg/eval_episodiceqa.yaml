@@ -1,10 +1,10 @@
 # General
 seed: 77
-exp_name: "exp_eval_aeqa"
+exp_name: "episodic_eqa_pts"
 output_parent_dir: "results"
-scene_dataset_config_path: "data/hm3d_annotated_basis.scene_dataset_config.json"
-scene_data_path: "/home/shivin/Desktop/3dmem/data/hm3d"
-questions_list_path: 'data/aeqa_questions-41.json'
+# scene_dataset_config_path: "data/hm3d_annotated_basis.scene_dataset_config.json"
+scene_data_path: "/home/shivin/Desktop/3dmem/data/mp3d/mp3d_scenes"
+questions_list_path: 'data/episodic_eqa_questions.json'
 
 concept_graph_config_path: "cfg/concept_graph_default.yaml"
 
@@ -25,9 +25,9 @@ min_detection: 1
 # camera, image
 camera_height: 1.5
 camera_tilt_deg: -30
-img_width: 1280
-img_height: 1280
-hfov: 120
+img_width: 1200
+img_height: 1200
+hfov: 90
 
 # whether to save visualization (which is slow)
 save_visualization: true
@@ -37,7 +37,7 @@ prompt_h: 360
 prompt_w: 360
 
 # navigation
-num_step: 50
+num_step: 30
 init_clearance: 0.3
 extra_view_phase_1: 2  # the number of extra views
 extra_view_angle_deg_phase_1: 60  # the angle between each extra view
@@ -45,7 +45,7 @@ extra_view_phase_2: 6
 extra_view_angle_deg_phase_2: 40
 
 # about tsdf, depth map, and frontier updates
-explored_depth: 1.7
+explored_depth: 3 #1.7
 tsdf_grid_size: 0.1
 margin_w_ratio: 0.25
 margin_h_ratio: 0.6

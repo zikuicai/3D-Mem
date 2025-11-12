@@ -75,27 +75,37 @@ class Scene:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # about the loading the scene
-        split = "train" if int(scene_id.split("-")[0]) < 800 else "val"
+        # split = "train" if int(scene_id.split("-")[0]) < 800 else "val"
+        # scene_mesh_path = os.path.join(
+        #     cfg.scene_data_path, split, scene_id, scene_id.split("-")[1] + ".basis.glb"
+        # )
+        # navmesh_path = os.path.join(
+        #     cfg.scene_data_path,
+        #     split,
+        #     scene_id,
+        #     scene_id.split("-")[1] + ".basis.navmesh",
+        # )
+
         scene_mesh_path = os.path.join(
-            cfg.scene_data_path, split, scene_id, scene_id.split("-")[1] + ".basis.glb"
+            cfg.scene_data_path, scene_id, scene_id + ".glb"
         )
         navmesh_path = os.path.join(
             cfg.scene_data_path,
-            split,
             scene_id,
-            scene_id.split("-")[1] + ".basis.navmesh",
+            scene_id + ".navmesh",
         )
+
         semantic_texture_path = os.path.join(
             cfg.scene_data_path,
-            split,
+            # split,
             scene_id,
-            scene_id.split("-")[1] + ".semantic.glb",
+            scene_id + ".semantic.glb",
         )
         scene_semantic_annotation_path = os.path.join(
             cfg.scene_data_path,
-            split,
+            # split,
             scene_id,
-            scene_id.split("-")[1] + ".semantic.txt",
+            scene_id + ".semantic.txt",
         )
         assert os.path.exists(
             scene_mesh_path
@@ -117,8 +127,8 @@ class Scene:
             "width": cfg.img_width,
             "height": cfg.img_height,
             "hfov": cfg.hfov,
-            "scene_dataset_config_file": cfg.scene_dataset_config_path,
-            "camera_tilt": cfg.camera_tilt_deg * np.pi / 180,
+            # "scene_dataset_config_file": cfg.scene_dataset_config_path,
+            # "camera_tilt": cfg.camera_tilt_deg * np.pi / 180,
         }
         if os.path.exists(semantic_texture_path) and os.path.exists(
             scene_semantic_annotation_path

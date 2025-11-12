@@ -52,17 +52,16 @@ def call_openai_api(sys_prompt, contents) -> Optional[str]:
                 top_p=0.95,
                 frequency_penalty=0,
                 presence_penalty=0,
-                stop=None,
             )
             return completion.choices[0].message.content
         except openai.RateLimitError as e:
-            print("Rate limit error, waiting for 3s")
-            time.sleep(3)
+            print("Rate limit error, waiting for 60s")
+            time.sleep(30)
             retry_count += 1
             continue
         except Exception as e:
             print("Error: ", e)
-            time.sleep(3)
+            time.sleep(60)
             retry_count += 1
             continue
 
